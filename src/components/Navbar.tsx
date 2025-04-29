@@ -1,73 +1,107 @@
 
-import { useState } from "react";
-import { Menu } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Menu, Phone, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 const Navbar = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
+  
+  const handleScroll = () => {
+    const offset = window.scrollY;
+    setScrolled(offset > 50);
+  };
+  
+  useEffect(() => {
+    window.addEventListener("scroll", handleScroll);
+    return () => {
+      window.removeEventListener("scroll", handleScroll);
+    };
+  }, []);
   
   return (
-    <header className="fixed top-0 left-0 right-0 bg-black text-white z-50 shadow-md">
-      <div className="container mx-auto px-4 py-4">
+    <header 
+      className={cn(
+        "fixed top-0 left-0 right-0 z-50 transition-all duration-300",
+        scrolled ? "bg-black/95 shadow-md py-2" : "bg-black/10 py-4"
+      )}
+    >
+      <div className="container mx-auto px-4">
         <div className="flex justify-between items-center">
           <div className="flex items-center">
-            <a href="/" className="text-xl font-bold tracking-tighter">
-              STEEL<span className="text-steel-300">WHEEL</span>
+            <a href="/" className="text-2xl font-bold tracking-tighter group transition-all duration-300">
+              <span className="text-white group-hover:text-steel-300 transition-colors duration-300">STEEL</span>
+              <span className="text-steel-300 group-hover:text-white transition-colors duration-300">WHEEL</span>
             </a>
           </div>
           
           <nav className="hidden md:flex space-x-8">
-            <a href="#services" className="hover:text-steel-300 transition-colors">Services</a>
-            <a href="#booking" className="hover:text-steel-300 transition-colors">Book Now</a>
-            <a href="#about" className="hover:text-steel-300 transition-colors">About</a>
-            <a href="#contact" className="hover:text-steel-300 transition-colors">Contact</a>
+            <a href="#services" className="text-white hover:text-steel-300 transition-all duration-300 relative group">
+              <span className="group-hover:animate-pulse-subtle">Services</span>
+              <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-steel-300 transition-all duration-300 group-hover:w-full"></span>
+            </a>
+            <a href="#booking" className="text-white hover:text-steel-300 transition-all duration-300 relative group">
+              <span className="group-hover:animate-pulse-subtle">Book Now</span>
+              <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-steel-300 transition-all duration-300 group-hover:w-full"></span>
+            </a>
+            <a href="#about" className="text-white hover:text-steel-300 transition-all duration-300 relative group">
+              <span className="group-hover:animate-pulse-subtle">About</span>
+              <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-steel-300 transition-all duration-300 group-hover:w-full"></span>
+            </a>
+            <a href="#contact" className="text-white hover:text-steel-300 transition-all duration-300 relative group">
+              <span className="group-hover:animate-pulse-subtle">Contact</span>
+              <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-steel-300 transition-all duration-300 group-hover:w-full"></span>
+            </a>
           </nav>
           
-          <Button className="hidden md:flex bg-white text-black hover:bg-steel-100">
-            Call Now
+          <Button className="hidden md:flex items-center gap-2 bg-steel-300 text-black hover:bg-white transition-all duration-300">
+            <Phone size={18} /> Call Now
           </Button>
           
           <button 
             onClick={() => setIsMenuOpen(!isMenuOpen)}
-            className="md:hidden text-white"
+            className="md:hidden text-white z-50"
           >
-            <Menu size={24} />
+            {isMenuOpen ? <X size={24} /> : <Menu size={24} />}
           </button>
         </div>
         
         {isMenuOpen && (
-          <div className="md:hidden py-4 animate-accordion-down">
-            <nav className="flex flex-col space-y-4">
+          <div className="md:hidden fixed inset-0 bg-black/95 z-40 pt-20 animate-slide-in">
+            <nav className="flex flex-col space-y-8 p-8 text-center">
               <a 
                 href="#services" 
-                className="hover:text-steel-300 transition-colors"
+                className="text-xl font-medium text-white hover:text-steel-300 transition-colors"
                 onClick={() => setIsMenuOpen(false)}
               >
                 Services
               </a>
               <a 
                 href="#booking" 
-                className="hover:text-steel-300 transition-colors"
+                className="text-xl font-medium text-white hover:text-steel-300 transition-colors"
                 onClick={() => setIsMenuOpen(false)}
               >
                 Book Now
               </a>
               <a 
                 href="#about" 
-                className="hover:text-steel-300 transition-colors"
+                className="text-xl font-medium text-white hover:text-steel-300 transition-colors"
                 onClick={() => setIsMenuOpen(false)}
               >
                 About
               </a>
               <a 
                 href="#contact" 
-                className="hover:text-steel-300 transition-colors"
+                className="text-xl font-medium text-white hover:text-steel-300 transition-colors"
                 onClick={() => setIsMenuOpen(false)}
               >
                 Contact
               </a>
-              <Button className="w-full bg-white text-black hover:bg-steel-100">
-                Call Now
+              <Button 
+                className="w-full mt-4 flex items-center justify-center gap-2 bg-steel-300 text-black hover:bg-white"
+              >
+                <Phone size={18} /> Call Now
               </Button>
             </nav>
           </div>
