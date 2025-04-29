@@ -1,5 +1,4 @@
-
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { format } from "date-fns";
 import { Calendar } from "@/components/ui/calendar";
 import { Button } from "@/components/ui/button";
@@ -7,11 +6,15 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { CarIcon, CalendarIcon } from "lucide-react";
+import { CalendarIcon } from "lucide-react";
 import { services, TimeSlot, generateTimeSlots } from "@/lib/data";
 import { cn } from "@/lib/utils";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
+import { useNavigate } from "react-router-dom";
+import { submitBooking } from "@/services/bookingService";
+import { toast } from "sonner";
 
 const BookingForm = () => {
   const [date, setDate] = useState<Date>();
@@ -22,7 +25,9 @@ const BookingForm = () => {
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [vehicleInfo, setVehicleInfo] = useState("");
-  const { toast } = useToast();
+  const { toast: uiToast } = useToast();
+  const { authState } = useAuth();
+  const navigate = useNavigate();
 
   const handleDateSelect = (selectedDate: Date | undefined) => {
     setDate(selectedDate);
@@ -32,11 +37,20 @@ const BookingForm = () => {
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    if (!authState.user) {
+      uiToast({
+        title: "Login Required",
+        description: "Please log in to book a service.",
+      });
+      navigate("/auth");
+      return;
+    }
+    
     if (!date || !selectedTime || !selectedService || !name || !email || !phone) {
-      toast({
+      uiToast({
         title: "Missing information",
         description: "Please fill in all required fields before submitting.",
         variant: "destructive"
@@ -44,21 +58,43 @@ const BookingForm = () => {
       return;
     }
 
-    toast({
-      title: "Booking Request Received!",
-      description: `We've received your booking request for ${format(date, "MMMM d, yyyy")} at ${selectedTime}. We'll contact you shortly to confirm.`,
+    const result = await submitBooking({
+      name,
+      email,
+      phone,
+      serviceId: selectedService,
+      date,
+      timeSlot: selectedTime,
+      vehicleInfo
     });
 
-    // Reset form
-    setDate(undefined);
-    setTimeSlots([]);
-    setSelectedTime(null);
-    setSelectedService(null);
-    setName("");
-    setEmail("");
-    setPhone("");
-    setVehicleInfo("");
+    if (result) {
+      toast("Booking Request Received!", {
+        description: `We've received your booking request for ${format(date, "MMMM d, yyyy")} at ${selectedTime}. We'll contact you shortly to confirm.`,
+      });
+
+      // Reset form
+      setDate(undefined);
+      setTimeSlots([]);
+      setSelectedTime(null);
+      setSelectedService(null);
+      setName("");
+      setEmail("");
+      setPhone("");
+      setVehicleInfo("");
+      
+      // Redirect to dashboard
+      navigate("/dashboard");
+    }
   };
+
+  // Pre-fill form with user data if logged in
+  useEffect(() => {
+    if (authState.user?.user_metadata) {
+      setName(authState.user.user_metadata.full_name || "");
+      setEmail(authState.user.email || "");
+    }
+  }, [authState.user]);
 
   return (
     <section id="booking" className="py-20 bg-white">
@@ -193,7 +229,7 @@ const BookingForm = () => {
               </div>
 
               <Button type="submit" className="w-full bg-black hover:bg-steel-800 text-white">
-                Request Booking
+                {authState.user ? "Request Booking" : "Sign In to Book"}
               </Button>
               
               <p className="text-center text-sm text-steel-500">
