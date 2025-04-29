@@ -1,3 +1,4 @@
+
 import type { Config } from "tailwindcss";
 
 export default {
@@ -61,7 +62,19 @@ export default {
 					'accent-foreground': 'hsl(var(--sidebar-accent-foreground))',
 					border: 'hsl(var(--sidebar-border))',
 					ring: 'hsl(var(--sidebar-ring))'
-				}
+				},
+				// Custom car service colors
+				'steel': {
+					'100': '#F1F1F1',
+					'200': '#C8C8C9',
+					'300': '#8A898C',
+					'400': '#555555',
+					'500': '#403E43',
+					'600': '#333333',
+					'700': '#222222',
+					'800': '#111111',
+					'900': '#000000',
+				},
 			},
 			borderRadius: {
 				lg: 'var(--radius)',
