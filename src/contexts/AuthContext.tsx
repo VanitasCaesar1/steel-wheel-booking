@@ -1,7 +1,7 @@
 
 import { createContext, useContext, useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "@/hooks/use-toast";
 import { AuthState } from "@/types/bookingTypes";
 
 const AuthContext = createContext<{
@@ -22,7 +22,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     session: null,
     loading: true,
   });
-  const { toast } = useToast();
 
   useEffect(() => {
     // Set up auth state listener FIRST
