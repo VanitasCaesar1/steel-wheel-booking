@@ -1,4 +1,3 @@
-
 import { Button } from "@/components/ui/button";
 import { ChevronDown } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -9,7 +8,7 @@ const Hero = () => {
   useEffect(() => {
     setIsVisible(true);
   }, []);
-
+  
   return (
     <section className="relative h-screen flex items-center justify-center bg-black text-white overflow-hidden">
       <div
@@ -19,45 +18,44 @@ const Hero = () => {
         }}
       />
       <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/30 to-black"></div>
-      
-      <div className="absolute inset-0 mix-blend-overlay opacity-70"
+      <div 
+        className="absolute inset-0 mix-blend-overlay opacity-70"
         style={{
           backgroundImage: "radial-gradient(circle at 25% 25%, rgba(255,255,255,0.2) 1px, transparent 1px)",
           backgroundSize: "50px 50px"
         }}
       />
-      
       <div className="container px-4 z-10 text-center">
         <h1 className={`text-4xl md:text-7xl font-bold mb-6 transition-all duration-1000 ${isVisible ? 'opacity-100' : 'opacity-0 translate-y-10'}`}>
           <span className="block mb-2 tracking-tight text-steel-300 drop-shadow-lg">PRECISION</span>
           <span className="block text-white tracking-wider">AUTOMOTIVE <span className="text-steel-300">CARE</span></span>
         </h1>
-        
         <p className={`text-xl md:text-2xl max-w-2xl mx-auto mb-10 text-steel-100 transition-all duration-1000 delay-300 ${isVisible ? 'opacity-100' : 'opacity-0 translate-y-10'}`}>
           Expert mechanics, guaranteed quality, and transparent pricing on all services.
         </p>
-        
-        <div className={`flex flex-col md:flex-row gap-4 justify-center transition-all duration-1000 delay-500 ${isVisible ? 'opacity-100' : 'opacity-0 translate-y-10'}`}>
-          <Button 
-            size="lg" 
-            className="bg-white text-black hover:bg-steel-300 hover:text-white text-lg px-10 py-6 font-semibold tracking-wide shadow-lg transition-all duration-300"
+        <div className={`flex flex-col md:flex-row gap-6 justify-center transition-all duration-1000 delay-500 ${isVisible ? 'opacity-100' : 'opacity-0 translate-y-10'}`}>
+          <Button
+            size="lg"
+            className="relative bg-steel-300 text-black hover:bg-white hover:text-steel-500 text-lg px-10 py-6 font-semibold tracking-wide shadow-xl group overflow-hidden transform transition-all duration-300 ease-out hover:scale-105"
             onClick={() => document.getElementById("booking")?.scrollIntoView({behavior: "smooth"})}
           >
-            BOOK SERVICE
+            <span className="relative z-10">BOOK SERVICE</span>
+            <span className="absolute inset-0 bg-gradient-to-r from-steel-400 to-steel-300 opacity-0 group-hover:opacity-0 transition-all duration-300"></span>
+            <span className="absolute bottom-0 left-0 h-1 w-full bg-white transform scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-left"></span>
           </Button>
-          <Button 
-            size="lg" 
-            variant="outline" 
-            className="border-2 border-steel-300 text-steel-300 hover:bg-steel-300 hover:text-black text-lg px-10 py-6 font-semibold tracking-wide shadow-lg transition-all duration-300"
+          <Button
+            size="lg"
+            variant="outline"
+            className="relative border-2 border-steel-300 text-steel-300 hover:text-black text-lg px-10 py-6 font-semibold tracking-wide shadow-xl group overflow-hidden transform transition-all duration-300 ease-out hover:scale-105 hover:border-white"
             onClick={() => document.getElementById("services")?.scrollIntoView({behavior: "smooth"})}
           >
-            OUR SERVICES
+            <span className="relative z-10">OUR SERVICES</span>
+            <span className="absolute inset-0 bg-steel-300 transform scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-left"></span>
           </Button>
         </div>
       </div>
-      
       <div className="absolute bottom-8 w-full text-center">
-        <button 
+        <button
           onClick={() => document.getElementById("services")?.scrollIntoView({behavior: "smooth"})}
           className="animate-float bg-transparent rounded-full p-2 group transition-all duration-300"
         >

@@ -13,7 +13,7 @@ export const services: Service[] = [
     id: 1,
     title: "Oil Change Service",
     description: "Complete oil and filter change using premium synthetic oil to ensure optimal engine performance.",
-    price: "$49.99",
+    price: "₹449.99",
     icon: "wrench",
     duration: "45 mins"
   },
@@ -21,7 +21,7 @@ export const services: Service[] = [
     id: 2,
     title: "Brake Inspection & Service",
     description: "Comprehensive brake system inspection and service to ensure safe and responsive braking.",
-    price: "$89.99",
+    price: "₹889.99",
     icon: "settings",
     duration: "1 hour"
   },
@@ -29,7 +29,7 @@ export const services: Service[] = [
     id: 3,
     title: "Full Vehicle Inspection",
     description: "Detailed bumper-to-bumper inspection covering all major vehicle systems with digital report.",
-    price: "$129.99",
+    price: "₹1029.99",
     icon: "list",
     duration: "1.5 hours"
   },
@@ -37,7 +37,7 @@ export const services: Service[] = [
     id: 4,
     title: "Wheel Alignment",
     description: "Precision wheel alignment to improve handling, reduce tire wear, and optimize fuel efficiency.",
-    price: "$79.99",
+    price: "₹779.99",
     icon: "settings",
     duration: "1 hour"
   },
@@ -45,7 +45,7 @@ export const services: Service[] = [
     id: 5,
     title: "Air Conditioning Service",
     description: "Complete A/C system inspection, refrigerant recharge, and performance optimization.",
-    price: "$119.99",
+    price: "₹119.99",
     icon: "settings",
     duration: "1.5 hours"
   },
@@ -53,7 +53,7 @@ export const services: Service[] = [
     id: 6,
     title: "Major Service Package",
     description: "Comprehensive service including oil change, filters, fluids, brakes, and full inspection.",
-    price: "$249.99",
+    price: "₹2449.99",
     icon: "wrench",
     duration: "3 hours"
   }
