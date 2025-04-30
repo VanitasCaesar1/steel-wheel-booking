@@ -1,13 +1,13 @@
-
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { services } from "@/lib/data";
 import { Button } from "@/components/ui/button";
-import { Car, Wrench, Settings, List } from "lucide-react";
+import { Car, Wrench, Settings, List, ArrowRight } from "lucide-react";
 import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 
 const Services = () => {
-  const [visibleItems, setVisibleItems] = useState<number[]>([]);
+  const [visibleItems, setVisibleItems] = useState([]);
+  const [hoveredCard, setHoveredCard] = useState(null);
 
   useEffect(() => {
     const observer = new IntersectionObserver((entries) => {
@@ -27,30 +27,31 @@ const Services = () => {
     return () => observer.disconnect();
   }, []);
 
-  const getIconComponent = (iconName: string) => {
+  const getIconComponent = (iconName) => {
     switch (iconName) {
       case "car":
-        return <Car className="h-10 w-10 text-steel-300" />;
+        return <Car className="h-8 w-8" />;
       case "wrench":
-        return <Wrench className="h-10 w-10 text-steel-300" />;
+        return <Wrench className="h-8 w-8" />;
       case "settings":
-        return <Settings className="h-10 w-10 text-steel-300" />;
+        return <Settings className="h-8 w-8" />;
       case "list":
-        return <List className="h-10 w-10 text-steel-300" />;
+        return <List className="h-8 w-8" />;
       default:
-        return <Car className="h-10 w-10 text-steel-300" />;
+        return <Car className="h-8 w-8" />;
     }
   };
 
   return (
-    <section id="services" className="py-20 bg-steel-900 text-white">
-      <div className="container px-4">
-        <div className="text-center mb-16">
-          <h2 className="text-3xl md:text-5xl font-bold mb-6 relative inline-block">
+    <section id="services" className="py-24 m-8 rounded-2xl bg-black text-white">
+      <div className="container px-4 mx-auto">
+        <div className="text-center mb-20">
+          
+          <h2 className="text-4xl md:text-5xl font-bold mb-6 relative inline-block">
             <span className="relative z-10">OUR SERVICES</span>
-            <span className="absolute bottom-2 left-0 w-full h-3 bg-steel-300 opacity-30 -z-0"></span>
+            <span className="absolute bottom-2 left-0 w-full h-3 bg-white opacity-10 -z-0"></span>
           </h2>
-          <p className="text-lg text-steel-200 max-w-2xl mx-auto">
+          <p className="text-lg text-zinc-400 max-w-2xl mx-auto">
             We offer a comprehensive range of services to keep your vehicle running at its best.
             All our work comes with a satisfaction guarantee.
           </p>
@@ -61,41 +62,80 @@ const Services = () => {
             <Card 
               key={service.id} 
               className={cn(
-                "service-card border-0 border-t-4 border-steel-300 bg-steel-800 hover:bg-steel-700 shadow-xl transition-all duration-500 h-full flex flex-col transform hover:-translate-y-2",
-                visibleItems.includes(index) ? "opacity-100" : "opacity-0 translate-y-10"
+                "service-card border-0 shadow-xl transition-all duration-500 h-full flex flex-col transform",
+                visibleItems.includes(index) ? "opacity-100" : "opacity-0 translate-y-10",
+                hoveredCard === index ? "scale-105" : "hover:scale-102"
               )}
               data-index={index}
+              onMouseEnter={() => setHoveredCard(index)}
+              onMouseLeave={() => setHoveredCard(null)}
+              style={{
+                background: hoveredCard === index ? "#111111" : "#0a0a0a",
+                borderRadius: "12px",
+                boxShadow: hoveredCard === index 
+                  ? "0 20px 25px -5px rgba(0, 0, 0, 0.3), 0 10px 10px -5px rgba(0, 0, 0, 0.2)" 
+                  : "0 10px 15px -3px rgba(0, 0, 0, 0.2), 0 4px 6px -4px rgba(0, 0, 0, 0.2)"
+              }}
             >
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <div className="bg-steel-900 p-3 rounded-full">
+              <div className="absolute top-0 left-0 w-full h-1 bg-white rounded-t-lg"></div>
+              <CardHeader className="pb-2">
+                <div className="flex items-center justify-between mb-2">
+                  <div 
+                    className={cn(
+                      "p-4 rounded-lg transition-all duration-300",
+                      hoveredCard === index ? "bg-white text-black" : "bg-zinc-900 text-white"
+                    )}
+                  >
                     {getIconComponent(service.icon)}
                   </div>
-                  <span className="bg-steel-900 text-steel-300 px-4 py-1 rounded-full text-sm font-medium">
+                  <span className="bg-zinc-900 text-zinc-400 px-4 py-1 rounded-full text-sm font-medium border border-zinc-800">
                     {service.duration}
                   </span>
                 </div>
-                <CardTitle className="text-2xl mt-6 text-white">{service.title}</CardTitle>
-                <CardDescription className="text-steel-300 text-lg font-medium">
-                  Starting from {service.price}
+                <CardTitle className="text-2xl mt-4 text-white">{service.title}</CardTitle>
+                <CardDescription className="text-zinc-400 text-xl font-medium mt-2">
+                  Starting from <span className="text-white font-bold">{service.price}</span>
                 </CardDescription>
               </CardHeader>
-              <CardContent className="flex-grow text-steel-100">
+              
+              <CardContent className="flex-grow text-zinc-300 pt-2">
                 <p>{service.description}</p>
+                
+               
               </CardContent>
-              <CardFooter>
+              
+              <CardFooter className="pt-4">
                 <Button 
-                  className="w-full bg-steel-300 hover:bg-white text-black hover:text-black font-medium"
+                  className={cn(
+                    "w-full group transition-all duration-300 font-medium flex items-center justify-center gap-2",
+                    hoveredCard === index 
+                      ? "bg-white text-black hover:bg-zinc-200" 
+                      : "bg-zinc-900 text-white hover:bg-white hover:text-black"
+                  )}
                   onClick={() => {
                     document.getElementById("booking")?.scrollIntoView({behavior: "smooth"});
-                    // Could set some state here to pre-select this service in the booking form
                   }}
                 >
                   Book This Service
+                  <ArrowRight className={cn(
+                    "h-4 w-4 transition-transform",
+                    hoveredCard === index ? "translate-x-1" : "group-hover:translate-x-1"
+                  )} />
                 </Button>
               </CardFooter>
             </Card>
           ))}
+        </div>
+        
+        <div className="text-center mt-16">
+          <Button 
+            className="bg-white text-black hover:bg-zinc-200 px-8 py-6 text-lg font-medium"
+            onClick={() => {
+              document.getElementById("booking")?.scrollIntoView({behavior: "smooth"});
+            }}
+          >
+            View All Services
+          </Button>
         </div>
       </div>
     </section>

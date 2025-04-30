@@ -8,7 +8,7 @@ const Footer = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
           <div>
             <h3 className="text-xl font-bold mb-4">
-              STEEL<span className="text-steel-300">WHEEL</span>
+              GLOW <span className="text-steel-300">& GO</span>
             </h3>
             <p className="text-steel-300 mb-4">
               Premium automotive care without the premium price. Certified mechanics and transparent service.
@@ -59,16 +59,16 @@ const Footer = () => {
           <div>
             <h3 className="text-lg font-semibold mb-4">Contact Us</h3>
             <address className="not-italic">
-              <p className="mb-2">123 Service Road</p>
-              <p className="mb-2">Cartown, CT 12345</p>
+              <p className="mb-2">CKB Layout</p>
+              <p className="mb-2">Bengaluru</p>
               <p className="mb-2">
-                <a href="tel:+15551234567" className="text-steel-300 hover:text-white transition-colors">
-                  (555) 123-4567
+                <a className="text-steel-300 hover:text-white transition-colors">
+                  9063679809
                 </a>
               </p>
               <p className="mb-4">
                 <a href="mailto:info@steelwheel.com" className="text-steel-300 hover:text-white transition-colors">
-                  info@steelwheel.com
+                  info@glowandgo.com
                 </a>
               </p>
               <p className="mb-2">
@@ -83,7 +83,7 @@ const Footer = () => {
         
         <div className="flex flex-col md:flex-row justify-between items-center">
           <p className="text-steel-400 text-sm mb-4 md:mb-0">
-            &copy; {new Date().getFullYear()} SteelWheel Auto Service. All rights reserved.
+            &copy; {new Date().getFullYear()} Glow&Go Auto Service. All rights reserved.
           </p>
           <div className="flex space-x-6">
             <a href="#" className="text-steel-400 hover:text-white text-sm">Privacy Policy</a>
