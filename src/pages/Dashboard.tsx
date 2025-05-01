@@ -139,7 +139,7 @@ const Dashboard = () => {
       if (data && data.length > 0 && isAdminUser) {
         try {
           // Get unique user IDs from bookings
-          const userIds = [...new Set(data.map(booking => booking.user_id))];
+          const userIds = [...new Set(data.map(booking => booking.user_id))] as string[];
           
           // Fetch profiles for these users
           const { data: profilesData, error: profilesError } = await supabase
