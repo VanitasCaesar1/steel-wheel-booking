@@ -3,13 +3,14 @@ import { Menu, Phone, User, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 
 const Navbar = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
-  const { authState } = useAuth();
+  const { authState, signOut } = useAuth();
   const location = useLocation();
+  const navigate = useNavigate();
   
   // Determine if we're on a dashboard or authenticated page
   const isDashboardPage = location.pathname.includes('/dashboard');
@@ -45,6 +46,17 @@ const Navbar = () => {
   }, [isMenuOpen]);
 
   const closeMenu = () => setIsMenuOpen(false);
+  
+  const handleSignOut = () => {
+    signOut();
+    navigate('/');
+    closeMenu();
+  };
+
+  const handleSignIn = () => {
+    navigate('/auth');
+    closeMenu();
+  };
   
   return (
     <header 
@@ -172,7 +184,7 @@ const Navbar = () => {
                   <Button 
                     variant="ghost"
                     size="sm"
-                    onClick={() => {/* Sign out logic */}}
+                    onClick={handleSignOut}
                     className="text-xs lg:text-sm text-gray-700 hover:text-steel-500 hover:bg-transparent"
                   >
                     Sign Out
@@ -180,21 +192,20 @@ const Navbar = () => {
                 )}
               </>
             ) : (
-              <Link to="/auth">
-                <Button 
-                  variant={isDashboardPage ? "outline" : "secondary"}
-                  size="sm"
-                  className={cn(
-                    "text-xs lg:text-sm",
-                    isDashboardPage 
-                      ? "text-gray-700 border-gray-700 hover:bg-gray-700 hover:text-white" 
-                      : "bg-steel-300/20 text-steel-300 border border-steel-300 hover:bg-steel-300 hover:text-black"
-                  )}
-                >
-                  <User className="mr-1 lg:mr-2 h-3 w-3 lg:h-4 lg:w-4" />
-                  <span className="whitespace-nowrap">Sign In</span>
-                </Button>
-              </Link>
+              <Button 
+                variant={isDashboardPage ? "outline" : "secondary"}
+                size="sm"
+                onClick={handleSignIn}
+                className={cn(
+                  "text-xs lg:text-sm",
+                  isDashboardPage 
+                    ? "text-gray-700 border-gray-700 hover:bg-gray-700 hover:text-white" 
+                    : "bg-steel-300/20 text-steel-300 border border-steel-300 hover:bg-steel-300 hover:text-black"
+                )}
+              >
+                <User className="mr-1 lg:mr-2 h-3 w-3 lg:h-4 lg:w-4" />
+                <span className="whitespace-nowrap">Sign In</span>
+              </Button>
             )}
             
             <Button 
@@ -363,10 +374,7 @@ const Navbar = () => {
                       
                       {/* Sign Out Button */}
                       <button
-                        onClick={() => {
-                          /* Sign out logic */
-                          closeMenu();
-                        }}
+                        onClick={handleSignOut}
                         className="block w-full py-3 px-4 rounded-lg font-medium text-center border border-gray-200 text-gray-700 hover:text-steel-500 hover:border-steel-500 transition-colors"
                       >
                         Sign Out
@@ -386,14 +394,13 @@ const Navbar = () => {
                         </Link>
                       </div>
                     ) : (
-                      <Link 
-                        to="/auth"
+                      <button 
+                        onClick={handleSignIn}
                         className="block w-full py-3 px-4 rounded-lg font-medium text-center transition-colors bg-gray-800 text-steel-300 hover:bg-gray-700"
-                        onClick={closeMenu}
                       >
                         <User className="inline-block mr-2 h-4 w-4" />
                         Sign In
-                      </Link>
+                      </button>
                     )
                   )}
                 </div>

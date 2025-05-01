@@ -6,596 +6,662 @@ import {
   Card,
   CardContent,
   CardHeader,
-  CardTitle
+  CardTitle,
+  CardDescription
 } from "@/components/ui/card";
-import Navbar from "@/components/Navbar";
-import { format } from "date-fns";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow
-} from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
-import { useNavigate } from "react-router-dom";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
-  SelectValue
+  SelectValue,
 } from "@/components/ui/select";
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ChevronDown, Calendar, Clock, Car, Phone, User, Filter } from "lucide-react";
-
-// Define the Booking type based on the SQL schema
-interface Booking {
-  id: string;
-  user_id: string;
-  service_id: string;
-  service_title: string;
-  date: string;
-  time_slot: string;
-  vehicle_info: string | null;
-  status: string;
-  created_at: string;
-  updated_at: string;
-  // Include profile information when joined
-  profiles?: {
-    full_name: string | null;
-    phone: string | null;
-  };
-}
+  Pagination,
+  PaginationContent,
+  PaginationEllipsis,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { format, isToday, parseISO } from "date-fns";
+import { Calendar, SearchIcon, FilterIcon, RefreshCw } from "lucide-react";
+import Navbar from "@/components/Navbar";
 
 const Dashboard = () => {
-  const currentDate = new Date();
-  const { authState, signOut } = useAuth();
-  const [bookings, setBookings] = useState<Booking[]>([]);
+  const { authState } = useAuth();
+  const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
-  const [statusFilter, setStatusFilter] = useState<string>("all");
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
-  const [dialogAction, setDialogAction] = useState<"confirm" | "cancel" | null>(null);
-  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
-  const navigate = useNavigate();
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const [filterStatus, setFilterStatus] = useState("all");
+  const [filterDate, setFilterDate] = useState("today");
+  const [selectedBooking, setSelectedBooking] = useState(null);
+  const [isStatusDialogOpen, setIsStatusDialogOpen] = useState(false);
+  const [newStatus, setNewStatus] = useState("");
+  const [statusUpdating, setStatusUpdating] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [isFilterMenuOpen, setIsFilterMenuOpen] = useState(false);
 
   // Check if user is admin
   useEffect(() => {
     const checkAdminStatus = async () => {
       if (authState.user) {
-        // Example admin check - modify according to your admin designation method
         const email = authState.user.email;
-        setIsAdmin(
-          email?.endsWith("@admin.com") ||
-          authState.user.user_metadata?.role === "admin"
-        );
+        const isAdminUser = email === "user@admin.com" || 
+        email?.endsWith("@admin.com") || 
+        authState.user?.user_metadata?.role === "admin";
+        setIsAdmin(isAdminUser);
       }
     };
     checkAdminStatus();
   }, [authState.user]);
 
-  // Handle mobile responsive detection
-  useEffect(() => {
-    const handleResize = () => {
-      setIsMobile(window.innerWidth < 768);
-    };
-    
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
-
-  // Load bookings
-  useEffect(() => {
-    const fetchBookings = async () => {
-      if (!authState.user) return;
-      try {
-        let query;
-        if (isAdmin) {
-          // Admin sees all bookings with profile information
-          query = supabase
-            .from('bookings')
-            .select(`
-              *,
-              profiles(full_name, phone)
-            `);
-        } else {
-          // Regular user only sees their own bookings
-          query = supabase
-            .from('bookings')
-            .select('*')
-            .eq('user_id', authState.user.id);
-        }
-
-        // Apply status filter if not "all"
-        if (statusFilter !== "all") {
-          query = query.eq('status', statusFilter);
-        }
-
-        // Order by date and created_at
-        query = query.order('date', { ascending: false })
-          .order('created_at', { ascending: false });
-
-        const { data, error } = await query;
-        if (error) throw error;
-        setBookings(data || []);
-      } catch (error) {
-        console.error("Error fetching bookings:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchBookings();
-  }, [authState.user, isAdmin, statusFilter]);
-
-  const handleSignOut = async () => {
-    await signOut();
-    navigate("/");
+  // Format date for display and comparison
+  const formatDate = (dateString) => {
+    try {
+      return format(parseISO(dateString), "MMM d, yyyy");
+    } catch (error) {
+      return dateString;
+    }
   };
 
-  const handleStatusUpdate = async (bookingId: string, newStatus: string) => {
+  // Load bookings with pagination and filters
+  const fetchBookings = async () => {
+    if (!authState.user) return;
+    
+    setLoading(true);
+    
+    try {
+      let query;
+      
+      // Ensure isAdmin is properly set before making the query
+      const email = authState.user.email;
+      const isAdminUser = email === "user@admin.com" || 
+                        email?.endsWith("@admin.com") || 
+                        authState.user?.user_metadata?.role === "admin";
+      
+      if (isAdminUser) {
+        // Admin sees all bookings
+        query = supabase
+          .from('bookings')
+          .select('*', { count: 'exact' });
+      } else {
+        // Regular user only sees their own bookings
+        query = supabase
+          .from('bookings')
+          .select('*', { count: 'exact' })
+          .eq('user_id', authState.user.id);
+      }
+
+      // Apply date filter
+      if (filterDate === "today") {
+        const today = new Date().toISOString().split('T')[0];
+        query = query.eq('date', today);
+      }
+
+      // Apply status filter if not "all"
+      if (filterStatus !== "all") {
+        query = query.eq('status', filterStatus);
+      }
+
+      // Apply pagination
+      const from = (currentPage - 1) * pageSize;
+      const to = from + pageSize - 1;
+      
+      // Order by date and created_at
+      query = query
+        .order('date', { ascending: true })
+        .order('time_slot', { ascending: true })
+        .range(from, to);
+
+      const { data, error, count } = await query;
+      
+      // Calculate total pages
+      if (count !== null) {
+        setTotalPages(Math.ceil(count / pageSize));
+      }
+      
+      if (error) throw error;
+      
+      // If we have data and admin user, fetch profiles separately
+      if (data && data.length > 0 && isAdminUser) {
+        try {
+          // Get unique user IDs from bookings
+          const userIds = [...new Set(data.map(booking => booking.user_id))];
+          
+          // Fetch profiles for these users
+          const { data: profilesData, error: profilesError } = await supabase
+            .from('profiles')
+            .select('id, full_name, phone')
+            .in('id', userIds);
+          
+          if (profilesError) throw profilesError;
+          
+          // Create a lookup map for profiles
+          const profilesMap = {};
+          if (profilesData) {
+            profilesData.forEach(profile => {
+              profilesMap[profile.id] = profile;
+            });
+          }
+          
+          // Attach profile data to bookings
+          const bookingsWithProfiles = data.map(booking => ({
+            ...booking,
+            profile: profilesMap[booking.user_id] || null
+          }));
+          
+          setBookings(bookingsWithProfiles);
+        } catch (profileError) {
+          console.error("Error fetching profiles:", profileError);
+          // Still show bookings even if profiles can't be fetched
+          setBookings(data);
+        }
+      } else {
+        setBookings(data || []);
+      }
+    } catch (error) {
+      console.error("Error fetching bookings:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Fetch bookings when dependencies change
+  useEffect(() => {
+    if (authState.user && isAdmin !== null) {
+      fetchBookings();
+    }
+  }, [authState.user, isAdmin, currentPage, pageSize, filterStatus, filterDate]);
+
+  // Open status edit dialog
+  const handleEditStatus = (booking) => {
+    setSelectedBooking(booking);
+    setNewStatus(booking.status);
+    setIsStatusDialogOpen(true);
+  };
+
+  // Update booking status
+  const updateBookingStatus = async () => {
+    if (!selectedBooking || !newStatus) return;
+    
+    setStatusUpdating(true);
+    
     try {
       const { error } = await supabase
         .from('bookings')
-        .update({
-          status: newStatus,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', bookingId);
-
+        .update({ status: newStatus })
+        .eq('id', selectedBooking.id);
+      
       if (error) throw error;
-
-      // Update booking in local state
-      setBookings(prevBookings =>
-        prevBookings.map(booking =>
-          booking.id === bookingId
-            ? { ...booking, status: newStatus, updated_at: new Date().toISOString() }
+      
+      // Update local state
+      setBookings(prevBookings => 
+        prevBookings.map(booking => 
+          booking.id === selectedBooking.id 
+            ? { ...booking, status: newStatus } 
             : booking
         )
       );
-
-      setDialogOpen(false);
+      
+      setIsStatusDialogOpen(false);
+      
     } catch (error) {
       console.error("Error updating booking status:", error);
+    } finally {
+      setStatusUpdating(false);
     }
   };
 
-  const openActionDialog = (booking: Booking, action: "confirm" | "cancel") => {
-    setSelectedBooking(booking);
-    setDialogAction(action);
-    setDialogOpen(true);
+  // Handle page changes
+  const goToPage = (page) => {
+    setCurrentPage(page);
   };
 
-  const getStatusBadge = (status: string) => {
-    switch (status.toLowerCase()) {
-      case "completed":
-        return (
-          <Badge className="bg-green-500 font-medium whitespace-nowrap text-xs">
-            <span className="flex items-center gap-1">
-              <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-              </svg>
-              Completed
-            </span>
-          </Badge>
-        );
-      case "confirmed":
-        return (
-          <Badge className="bg-blue-500 font-medium whitespace-nowrap text-xs">
-            <span className="flex items-center gap-1">
-              <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              Confirmed
-            </span>
-          </Badge>
-        );
-      case "pending":
-        return (
-          <Badge className="bg-yellow-500 font-medium whitespace-nowrap text-xs">
-            <span className="flex items-center gap-1">
-              <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              Pending
-            </span>
-          </Badge>
-        );
-      case "cancelled":
-        return (
-          <Badge className="bg-red-500 font-medium whitespace-nowrap text-xs">
-            <span className="flex items-center gap-1">
-              <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-              Cancelled
-            </span>
-          </Badge>
-        );
-      default:
-        return (
-          <Badge className="bg-gray-500 font-medium whitespace-nowrap text-xs">{status}</Badge>
-        );
-    }
-  };
-
-  // Mobile card view for bookings
-  const renderMobileBookingCard = (booking: Booking) => (
-    <Card key={booking.id} className="mb-4 border border-gray-200 shadow-sm overflow-hidden">
-      <div className={`px-4 py-2 ${booking.status.toLowerCase() === 'completed' ? 'bg-green-50' : 
-                                  booking.status.toLowerCase() === 'confirmed' ? 'bg-blue-50' : 
-                                  booking.status.toLowerCase() === 'pending' ? 'bg-yellow-50' : 
-                                  booking.status.toLowerCase() === 'cancelled' ? 'bg-red-50' : 'bg-gray-50'}`}>
-        <div className="flex justify-between items-center">
-          <h3 className="font-medium text-sm">{booking.service_title}</h3>
-          {getStatusBadge(booking.status)}
-        </div>
-      </div>
-      <CardContent className="p-4">
-        <div className="space-y-2 text-sm">
-          <div className="flex items-center">
-            <Calendar className="h-4 w-4 mr-2 text-gray-500" />
-            <span>{format(new Date(booking.date), "MMM dd, yyyy")}</span>
-          </div>
-          <div className="flex items-center">
-            <Clock className="h-4 w-4 mr-2 text-gray-500" />
-            <span>{booking.time_slot}</span>
-          </div>
-          
-          {isAdmin && (
-            <>
-              <div className="flex items-center">
-                <User className="h-4 w-4 mr-2 text-gray-500" />
-                <span>{booking.profiles?.full_name || "Unknown"}</span>
-              </div>
-              <div className="flex items-center">
-                <Phone className="h-4 w-4 mr-2 text-gray-500" />
-                <span>{booking.profiles?.phone || "No phone"}</span>
-              </div>
-              <div className="flex items-center">
-                <Car className="h-4 w-4 mr-2 text-gray-500" />
-                <span>{booking.vehicle_info || "Not provided"}</span>
-              </div>
-            </>
-          )}
-          
-          {isAdmin && booking.status === "pending" && (
-            <div className="flex gap-2 mt-3">
-              <Button
-                size="sm"
-                className="bg-blue-600 hover:bg-blue-700 text-white w-full text-xs"
-                onClick={() => openActionDialog(booking, "confirm")}
-              >
-                Confirm
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                className="text-red-600 border-red-300 hover:bg-red-50 w-full text-xs"
-                onClick={() => openActionDialog(booking, "cancel")}
-              >
-                Cancel
-              </Button>
-            </div>
-          )}
-          
-          {isAdmin && booking.status === "confirmed" && (
-            <div className="flex gap-2 mt-3">
-              <Button
-                size="sm"
-                className="bg-green-600 hover:bg-green-700 text-white w-full text-xs"
-                onClick={() => handleStatusUpdate(booking.id, "completed")}
-              >
-                Complete
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                className="text-red-600 border-red-300 hover:bg-red-50 w-full text-xs"
-                onClick={() => openActionDialog(booking, "cancel")}
-              >
-                Cancel
-              </Button>
-            </div>
-          )}
-        </div>
-      </CardContent>
-    </Card>
-  );
-
-  // Desktop table view
-  const renderDesktopTable = () => (
-    <div className="overflow-x-auto bg-white border border-gray-200 rounded-md shadow">
-      <Table>
-        <TableHeader>
-          <TableRow className="border-b-2 border-gray-200 bg-gray-50">
-            {isAdmin && <TableHead className="text-left py-3 text-xs font-semibold">Customer</TableHead>}
-            {isAdmin && <TableHead className="text-left py-3 text-xs font-semibold">Contact</TableHead>}
-            <TableHead className="text-left py-3 text-xs font-semibold">Service</TableHead>
-            <TableHead className="text-left py-3 text-xs font-semibold">Date</TableHead>
-            <TableHead className="text-left py-3 text-xs font-semibold">Time</TableHead>
-            {isAdmin && <TableHead className="text-left py-3 text-xs font-semibold">Vehicle</TableHead>}
-            <TableHead className="text-left py-3 text-xs font-semibold">Status</TableHead>
-            {isAdmin && <TableHead className="text-right py-3 text-xs font-semibold">Actions</TableHead>}
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {bookings.map((booking, index) => (
-            <TableRow
-              key={booking.id}
-              className={`border-b border-gray-200 hover:bg-gray-50 ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}
-            >
-              {isAdmin && (
-                <TableCell className="text-sm py-3">
-                  {booking.profiles?.full_name || "Unknown"}
-                </TableCell>
-              )}
-              {isAdmin && (
-                <TableCell className="text-sm py-3">{booking.profiles?.phone || "No phone"}</TableCell>
-              )}
-              <TableCell className="text-sm py-3 font-medium">{booking.service_title}</TableCell>
-              <TableCell className="text-sm py-3">{format(new Date(booking.date), "MM/dd/yyyy")}</TableCell>
-              <TableCell className="text-sm py-3">{booking.time_slot}</TableCell>
-              {isAdmin && (
-                <TableCell className="text-sm py-3">{booking.vehicle_info || "Not provided"}</TableCell>
-              )}
-              <TableCell className="py-3">{getStatusBadge(booking.status)}</TableCell>
-              {isAdmin && (
-                <TableCell className="text-right py-3">
-                  {booking.status === "pending" && (
-                    <div className="flex justify-end gap-2">
-                      <Button
-                        size="sm"
-                        className="bg-blue-600 hover:bg-blue-700 text-white text-xs"
-                        onClick={() => openActionDialog(booking, "confirm")}
-                      >
-                        Confirm
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="text-red-600 border-red-300 hover:bg-red-50 text-xs"
-                        onClick={() => openActionDialog(booking, "cancel")}
-                      >
-                        Cancel
-                      </Button>
-                    </div>
-                  )}
-                  {booking.status === "confirmed" && (
-                    <div className="flex justify-end gap-2">
-                      <Button
-                        size="sm"
-                        className="bg-green-600 hover:bg-green-700 text-white text-xs"
-                        onClick={() => handleStatusUpdate(booking.id, "completed")}
-                      >
-                        Complete
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="text-red-600 border-red-300 hover:bg-red-50 text-xs"
-                        onClick={() => openActionDialog(booking, "cancel")}
-                      >
-                        Cancel
-                      </Button>
-                    </div>
-                  )}
-                </TableCell>
-              )}
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
-    </div>
-  );
-
-  // Summary cards rendering
-  const renderStatusSummary = () => {
-    const statusCounts = {
-      all: bookings.length,
-      pending: bookings.filter(b => b.status.toLowerCase() === 'pending').length,
-      confirmed: bookings.filter(b => b.status.toLowerCase() === 'confirmed').length,
-      completed: bookings.filter(b => b.status.toLowerCase() === 'completed').length,
-      cancelled: bookings.filter(b => b.status.toLowerCase() === 'cancelled').length
-    };
-
+  // Filter bookings by search term
+  const filteredBookings = bookings.filter(booking => {
+    if (!searchTerm) return true;
+    
+    const searchLower = searchTerm.toLowerCase();
+    
+    // Search in various fields
     return (
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
-        <Card className="bg-white shadow-sm">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div className="text-sm font-semibold text-gray-600">Total</div>
-              <div className="text-lg font-bold">{statusCounts.all}</div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="bg-yellow-50 shadow-sm">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div className="text-sm font-semibold text-yellow-700">Pending</div>
-              <div className="text-lg font-bold text-yellow-800">{statusCounts.pending}</div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="bg-blue-50 shadow-sm">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div className="text-sm font-semibold text-blue-700">Confirmed</div>
-              <div className="text-lg font-bold text-blue-800">{statusCounts.confirmed}</div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="bg-green-50 shadow-sm">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div className="text-sm font-semibold text-green-700">Completed</div>
-              <div className="text-lg font-bold text-green-800">{statusCounts.completed}</div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+      (booking.service_title && booking.service_title.toLowerCase().includes(searchLower)) ||
+      (booking.vehicle_info && booking.vehicle_info.toLowerCase().includes(searchLower)) ||
+      (booking.profile && booking.profile.full_name && booking.profile.full_name.toLowerCase().includes(searchLower)) ||
+      (booking.profile && booking.profile.phone && booking.profile.phone.includes(searchTerm))
     );
+  });
+
+  // Reset filters
+  const resetFilters = () => {
+    setFilterStatus("all");
+    setFilterDate("all");
+    setSearchTerm("");
+    setCurrentPage(1);
+  };
+
+  // Get status badge style
+  const getStatusBadgeStyle = (status) => {
+    switch(status) {
+      case 'completed': 
+        return 'bg-green-100 text-green-800';
+      case 'canceled': 
+        return 'bg-red-100 text-red-800';
+      case 'confirmed': 
+        return 'bg-blue-100 text-blue-800';
+      default: 
+        return 'bg-yellow-100 text-yellow-800';
+    }
   };
 
   return (
-    <div className="min-h-screen bg-gray-100">
+    <div className="min-h-screen bg-gray-50">
       <Navbar />
-      
-      <div className="container px-4 sm:px-6 mx-auto py-8">
-        <div className="max-w-4xl mx-auto bg-white border border-gray-200 shadow-lg rounded-lg mt-16">
-          {/* Header section */}
-          <div className="bg-gray-900 text-white py-4 px-4 sm:px-6 sm:py-6 rounded-t-lg">
-            <div className="flex flex-col sm:flex-row justify-between items-center">
-              <div className="mb-4 sm:mb-0 text-center sm:text-left">
-                <h1 className="text-2xl sm:text-3xl font-bold">
-                  {isAdmin ? "ADMIN DASHBOARD" : "Service History"}
-                </h1>
-                <div className="text-xs text-gray-300 mt-1">CKB Layout, Bengaluru</div>
+      <div className="container mx-auto px-4 py-6">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6">
+          <div className="flex flex-col">
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Bookings Dashboard</h1>
+            <p className="text-gray-500 mt-1">Manage your service appointments</p>
+          </div>
+          {isAdmin && (
+            <div className="mt-2 sm:mt-0">
+              <span className="bg-green-100 text-green-800 text-xs font-medium px-3 py-1 rounded-full">
+                Admin Access
+              </span>
+            </div>
+          )}
+        </div>
+        
+        <Card className="mb-6 shadow-sm">
+          <CardHeader className="pb-2">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+              <div>
+                <CardTitle>Appointment Management</CardTitle>
+                <CardDescription className="mt-1">
+                  View and manage all customer bookings
+                </CardDescription>
               </div>
-              <div className="text-center sm:text-right">
-                <div className="text-sm">Welcome,</div>
-                <div className="font-bold">{authState.user?.user_metadata?.full_name || "User"}{isAdmin && " (Admin)"}</div>
-                <div className="text-xs text-gray-300 mt-1">{format(currentDate, "MMM dd, yyyy • hh:mm a")}</div>
+              
+              <div className="flex items-center gap-2">
+                <div className="relative">
+                  <input
+                    type="text"
+                    placeholder="Search bookings..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="py-2 pl-8 pr-4 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm w-full sm:w-auto"
+                  />
+                  <SearchIcon className="absolute left-2 top-2.5 h-4 w-4 text-gray-400" />
+                </div>
+                
+                <Button 
+                  variant="outline" 
+                  size="icon"
+                  onClick={() => setIsFilterMenuOpen(!isFilterMenuOpen)}
+                  className="relative"
+                >
+                  <FilterIcon className="h-4 w-4" />
+                  {(filterStatus !== "all" || filterDate !== "all") && (
+                    <span className="absolute -top-1 -right-1 h-2 w-2 bg-primary rounded-full" />
+                  )}
+                </Button>
+                
+                <Button 
+                  variant="outline" 
+                  size="icon" 
+                  onClick={fetchBookings}
+                  aria-label="Refresh"
+                >
+                  <RefreshCw className="h-4 w-4" />
+                </Button>
               </div>
             </div>
-          </div>
+          </CardHeader>
           
-          {/* Filter section */}
-          {isAdmin && (
-            <div className="bg-gray-50 px-4 sm:px-6 py-4 border-b border-gray-200">
-              <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
-                <div className="w-full sm:w-auto order-2 sm:order-1">
-                  <div className="text-sm text-gray-500">
-                    <span>System ID: </span>
-                    <span className="font-medium">{Math.random().toString(36).substring(2, 10).toUpperCase()}</span>
-                  </div>
+          {/* Filter Menu */}
+          {isFilterMenuOpen && (
+            <div className="px-6 py-3 border-t border-b">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div>
+                  <label className="text-sm font-medium mb-1 block">Date</label>
+                  <Select value={filterDate} onValueChange={setFilterDate}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Filter by date" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="today">Today</SelectItem>
+                      <SelectItem value="all">All Dates</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
-                <div className="w-full sm:w-auto order-1 sm:order-2">
-                  <div className="flex items-center space-x-2">
-                    <Filter className="h-4 w-4 text-gray-500" />
-                    <Select
-                      value={statusFilter}
-                      onValueChange={setStatusFilter}
-                    >
-                      <SelectTrigger className="w-full sm:w-40 text-sm h-9">
-                        <SelectValue placeholder="Filter status" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All Statuses</SelectItem>
-                        <SelectItem value="pending">Pending</SelectItem>
-                        <SelectItem value="confirmed">Confirmed</SelectItem>
-                        <SelectItem value="completed">Completed</SelectItem>
-                        <SelectItem value="cancelled">Cancelled</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
+                
+                <div>
+                  <label className="text-sm font-medium mb-1 block">Status</label>
+                  <Select value={filterStatus} onValueChange={setFilterStatus}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Filter by status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Statuses</SelectItem>
+                      <SelectItem value="confirmed">Confirmed</SelectItem>
+                      <SelectItem value="completed">Completed</SelectItem>
+                      <SelectItem value="canceled">Canceled</SelectItem>
+                      <SelectItem value="pending">Pending</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
+                
+                <div>
+                  <label className="text-sm font-medium mb-1 block">Show</label>
+                  <Select value={pageSize.toString()} onValueChange={(value) => setPageSize(Number(value))}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Items per page" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="5">5 per page</SelectItem>
+                      <SelectItem value="10">10 per page</SelectItem>
+                      <SelectItem value="20">20 per page</SelectItem>
+                      <SelectItem value="50">50 per page</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              
+              <div className="mt-3 flex justify-end">
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={resetFilters}
+                  className="text-xs"
+                >
+                  Reset Filters
+                </Button>
               </div>
             </div>
           )}
           
-          {/* Main content */}
-          <div className="p-4 sm:p-6">
-            {/* Admin status summary cards */}
-            {isAdmin && renderStatusSummary()}
-            
-            {/* Bookings section */}
-            <div className="mb-6">
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="text-lg font-bold">
-                  {isAdmin ? "All Bookings" : "Your Bookings"}
-                </h2>
+          <CardContent className="pt-4">
+            {loading ? (
+              <div className="flex justify-center p-8">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
               </div>
+            ) : filteredBookings.length > 0 ? (
+              <>
+                {/* Desktop Table View */}
+                <div className="hidden md:block overflow-x-auto rounded-lg border">
+                  <table className="w-full text-sm text-left">
+                    <thead className="text-xs uppercase bg-gray-50">
+                      <tr>
+                        <th className="px-4 py-3">Service</th>
+                        <th className="px-4 py-3">Date & Time</th>
+                        <th className="px-4 py-3">Status</th>
+                        <th className="px-4 py-3">Customer</th>
+                        <th className="px-4 py-3">Vehicle</th>
+                        <th className="px-4 py-3">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredBookings.map(booking => {
+                        const isTodays = booking.date && isToday(parseISO(booking.date));
+                        
+                        return (
+                          <tr key={booking.id} className={`border-b hover:bg-gray-50 ${isTodays ? 'bg-blue-50/40' : 'bg-white'}`}>
+                            <td className="px-4 py-3 font-medium">{booking.service_title}</td>
+                            <td className="px-4 py-3">
+                              <div className="flex flex-col">
+                                <div className="flex items-center">
+                                  {isTodays && <Calendar className="h-3 w-3 text-blue-500 mr-1" />}
+                                  {formatDate(booking.date)}
+                                </div>
+                                <span className="text-xs text-gray-500">{booking.time_slot}</span>
+                              </div>
+                            </td>
+                            <td className="px-4 py-3">
+                              <span className={`px-2 py-1 rounded-full text-xs ${getStatusBadgeStyle(booking.status)}`}>
+                                {booking.status}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3">
+                              {booking.profile ? booking.profile.full_name : 'Unknown'}
+                              {booking.profile && booking.profile.phone && (
+                                <div className="text-xs text-gray-500">{booking.profile.phone}</div>
+                              )}
+                            </td>
+                            <td className="px-4 py-3 text-gray-600">
+                              {booking.vehicle_info || 'Not specified'}
+                            </td>
+                            <td className="px-4 py-3">
+                              <Button 
+                                variant="outline" 
+                                size="sm" 
+                                onClick={() => handleEditStatus(booking)}
+                              >
+                                Update Status
+                              </Button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+                
+                {/* Mobile Card View */}
+                <div className="md:hidden space-y-4">
+                  {filteredBookings.map(booking => {
+                    const isTodays = booking.date && isToday(parseISO(booking.date));
+                    
+                    return (
+                      <div 
+                        key={booking.id} 
+                        className={`p-4 rounded-lg border ${isTodays ? 'bg-blue-50/40' : 'bg-white'}`}
+                      >
+                        <div className="flex justify-between items-start mb-3">
+                          <h3 className="font-semibold">{booking.service_title}</h3>
+                          <span className={`px-2 py-1 rounded-full text-xs ${getStatusBadgeStyle(booking.status)}`}>
+                            {booking.status}
+                          </span>
+                        </div>
+                        
+                        <div className="space-y-2 text-sm">
+                          <div className="flex items-center gap-2">
+                            <Calendar className="h-4 w-4 text-gray-400" />
+                            <div>
+                              <span>{formatDate(booking.date)}</span>
+                              <span className="text-gray-500 ml-2">{booking.time_slot}</span>
+                            </div>
+                          </div>
+                          
+                          {booking.profile && (
+                            <div className="flex items-start gap-2">
+                              <span className="text-gray-500 min-w-16">Customer:</span>
+                              <div>
+                                <div>{booking.profile.full_name}</div>
+                                {booking.profile.phone && (
+                                  <div className="text-xs text-gray-500">{booking.profile.phone}</div>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                          
+                          {booking.vehicle_info && (
+                            <div className="flex items-start gap-2">
+                              <span className="text-gray-500 min-w-16">Vehicle:</span>
+                              <div>{booking.vehicle_info}</div>
+                            </div>
+                          )}
+                        </div>
+                        
+                        <div className="mt-4">
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            onClick={() => handleEditStatus(booking)}
+                            className="w-full"
+                          >
+                            Update Status
+                          </Button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+                
+                {/* Pagination Controls */}
+                <div className="mt-6">
+                  <Pagination>
+                    <PaginationContent>
+                      <PaginationItem>
+                        <PaginationPrevious 
+                          onClick={() => goToPage(Math.max(1, currentPage - 1))}
+                          className={currentPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                        />
+                      </PaginationItem>
+                      
+                      {/* Desktop Pagination */}
+                      <div className="hidden sm:flex">
+                        {Array.from({ length: totalPages }).map((_, i) => {
+                          const pageNumber = i + 1;
+                          
+                          // Display first page, last page, and pages around current page
+                          if (
+                            pageNumber === 1 || 
+                            pageNumber === totalPages ||
+                            (pageNumber >= currentPage - 1 && pageNumber <= currentPage + 1)
+                          ) {
+                            return (
+                              <PaginationItem key={pageNumber}>
+                                <PaginationLink 
+                                  onClick={() => goToPage(pageNumber)}
+                                  isActive={pageNumber === currentPage}
+                                >
+                                  {pageNumber}
+                                </PaginationLink>
+                              </PaginationItem>
+                            );
+                          }
+                          
+                          // Add ellipsis
+                          if (
+                            (pageNumber === 2 && currentPage > 3) ||
+                            (pageNumber === totalPages - 1 && currentPage < totalPages - 2)
+                          ) {
+                            return (
+                              <PaginationItem key={pageNumber}>
+                                <PaginationEllipsis />
+                              </PaginationItem>
+                            );
+                          }
+                          
+                          return null;
+                        })}
+                      </div>
+                      
+                      {/* Mobile Pagination */}
+                      <div className="sm:hidden flex items-center mx-2">
+                        <span className="text-sm text-gray-500">
+                          Page {currentPage} of {totalPages}
+                        </span>
+                      </div>
+                      
+                      <PaginationItem>
+                        <PaginationNext 
+                          onClick={() => goToPage(Math.min(totalPages, currentPage + 1))}
+                          className={currentPage === totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                        />
+                      </PaginationItem>
+                    </PaginationContent>
+                  </Pagination>
+                </div>
+              </>
+            ) : (
+              <div className="bg-yellow-50 p-6 rounded-lg text-center">
+                <h3 className="text-lg font-medium text-yellow-800 mb-2">No bookings found</h3>
+                <p className="text-yellow-700">
+                  {searchTerm ? "Try adjusting your search query" : 
+                   (filterStatus !== "all" || filterDate !== "all") ? "Try changing your filters" : 
+                   "There are no bookings in the system yet"}
+                </p>
+                {(searchTerm || filterStatus !== "all" || filterDate !== "all") && (
+                  <Button 
+                    variant="outline" 
+                    className="mt-4"
+                    onClick={resetFilters}
+                  >
+                    Reset Filters
+                  </Button>
+                )}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+        
+        {/* Status Update Dialog */}
+        <Dialog open={isStatusDialogOpen} onOpenChange={setIsStatusDialogOpen}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Update Booking Status</DialogTitle>
+              <DialogDescription>
+                Change the status for {selectedBooking?.service_title} appointment on {selectedBooking?.date && formatDate(selectedBooking.date)}
+              </DialogDescription>
+            </DialogHeader>
+            
+            <div className="py-4">
+              <label className="text-sm font-medium mb-1 block">New Status</label>
+              <Select value={newStatus} onValueChange={setNewStatus}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Select new status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="confirmed">Confirmed</SelectItem>
+                  <SelectItem value="pending">Pending</SelectItem>
+                  <SelectItem value="completed">Completed</SelectItem>
+                  <SelectItem value="canceled">Canceled</SelectItem>
+                </SelectContent>
+              </Select>
               
-              {loading ? (
-                <div className="py-12 text-center bg-gray-50 rounded-lg border border-dashed border-gray-200">
-                  <div className="text-gray-500 animate-pulse">Loading bookings...</div>
-                  <div className="mt-2 text-xs text-gray-400">Please wait</div>
-                </div>
-              ) : bookings.length > 0 ? (
-                <>
-                  {/* Mobile view - cards */}
-                  {isMobile ? (
-                    <div className="space-y-4">
-                      {bookings.map(booking => renderMobileBookingCard(booking))}
-                    </div>
-                  ) : (
-                    /* Desktop view - table */
-                    renderDesktopTable()
-                  )}
-                </>
-              ) : (
-                <div className="py-8 text-center border-2 border-dashed border-gray-200 rounded-lg bg-gray-50">
-                  <p className="text-gray-600 mb-4">
-                    {isAdmin
-                      ? "No bookings match the selected filter"
-                      : "You don't have any bookings yet"}
-                  </p>
-                  {!isAdmin && (
-                    <Button
-                      onClick={() => navigate("/#booking")}
-                      className="bg-gray-800 hover:bg-gray-900"
-                    >
-                      Book a Service
-                    </Button>
-                  )}
-                </div>
-              )}
+              <div className="mt-4">
+                <p className="text-sm text-gray-500">
+                  Current status: 
+                  <span className={`ml-2 px-2 py-0.5 rounded-full text-xs ${getStatusBadgeStyle(selectedBooking?.status)}`}>
+                    {selectedBooking?.status}
+                  </span>
+                </p>
+              </div>
             </div>
-          </div>
-          
-          {/* Footer */}
-          <div className="border-t border-gray-200 px-4 sm:px-6 py-4 bg-gray-50 text-center rounded-b-lg">
-            <p className="text-sm font-bold mb-1">THANK YOU FOR YOUR BUSINESS!</p>
-            <p className="text-xs text-gray-500">Generated on {format(currentDate, "MM/dd/yyyy hh:mm a")}</p>
-          </div>
-        </div>
+            
+            <DialogFooter className="flex sm:justify-between">
+              <Button 
+                variant="outline" 
+                onClick={() => setIsStatusDialogOpen(false)}
+                className="mt-4 sm:mt-0"
+              >
+                Cancel
+              </Button>
+              <Button 
+                onClick={updateBookingStatus} 
+                disabled={statusUpdating || !newStatus || newStatus === selectedBooking?.status}
+                className="mt-2 sm:mt-0"
+              >
+                {statusUpdating ? "Updating..." : "Update Status"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
-      
-      {/* Confirmation Dialog */}
-      <AlertDialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <AlertDialogContent className="border border-gray-300 max-w-sm mx-auto">
-          <AlertDialogHeader>
-            <AlertDialogTitle>
-              {dialogAction === "confirm"
-                ? "Confirm Booking"
-                : "Cancel Booking"}
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              {dialogAction === "confirm"
-                ? "Are you sure you want to confirm this booking? This will notify the customer."
-                : "Are you sure you want to cancel this booking? This action cannot be undone."}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter className="flex-col sm:flex-row gap-2">
-            <AlertDialogCancel className="w-full sm:w-auto">No, Go Back</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => {
-                if (selectedBooking && dialogAction) {
-                  const newStatus = dialogAction === "confirm" ? "confirmed" : "cancelled";
-                  handleStatusUpdate(selectedBooking.id, newStatus);
-                }
-              }}
-              className={`w-full sm:w-auto ${dialogAction === "confirm" ? "bg-blue-600 hover:bg-blue-700" : "bg-red-600 hover:bg-red-700"}`}
-            >
-              {dialogAction === "confirm" ? "Yes, Confirm" : "Yes, Cancel Booking"}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   );
 };
